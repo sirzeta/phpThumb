@@ -1520,7 +1520,7 @@ class phpthumb {
 			// $UnAllowedParameters contains options that can only be processed in GD, not ImageMagick
 			// note: 'fltr' *may* need to be processed by GD, but we'll check that in more detail below
 			$UnAllowedParameters = array('xto', 'ar', 'bg', 'bc');
-			// 'ra' may be part of this list, if not a multiple of 90°
+			// 'ra' may be part of this list, if not a multiple of 90ï¿½
 			foreach ($UnAllowedParameters as $parameter) {
 				if (isset($this->$parameter)) {
 					$this->DebugMessage('$this->useRawIMoutput=false because "'.$parameter.'" is set', __FILE__, __LINE__);
@@ -1620,168 +1620,6 @@ class phpthumb {
 				$getimagesize = GetImageSize($this->sourceFilename);
 				$GetImageSizeError = ob_get_contents();
 				ob_end_clean();
-				if (is_array($getimagesize)) {
-					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') SUCCEEDED: '.print_r($getimagesize, true), __FILE__, __LINE__);
-				} else {
-					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') FAILED with error "'.$GetImageSizeError.'"', __FILE__, __LINE__);
-				}
-				if (is_array($getimagesize)) {
-					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') returned [w='.$getimagesize[0].';h='.$getimagesize[1].';f='.$getimagesize[2].']', __FILE__, __LINE__);
-					$this->source_width  = $getimagesize[0];
-					$this->source_height = $getimagesize[1];
-					$this->DebugMessage('source dimensions set to '.$this->source_width.'x'.$this->source_height, __FILE__, __LINE__);
-					$this->SetOrientationDependantWidthHeight();
-
-					if (!preg_match('#('.implode('|', $this->AlphaCapableFormats).')#i', $outputFormat)) {
-						// not a transparency-capable format
-						$commandline .= ' -background '.phpthumb_functions::escapeshellarg_replacement('#'.($this->bg ? $this->bg : 'FFFFFF'));
-						if ($getimagesize[2] == IMAGETYPE_GIF) {
-							$commandline .= ' -flatten';
-						}
-					}
-					if ($getimagesize[2] == IMAGETYPE_GIF) {
-						$commandline .= ' -coalesce'; // may be needed for animated GIFs
-					}
-					if ($this->source_width || $this->source_height) {
-						if ($this->zc) {
-
-							$borderThickness = 0;
-							if (!empty($this->fltr)) {
-								foreach ($this->fltr as $key => $value) {
-									if (preg_match('#^bord\|([0-9]+)#', $value, $matches)) {
-										$borderThickness = $matches[1];
-										break;
-									}
-								}
-							}
-							$wAll = intval(max($this->w, $this->wp, $this->wl, $this->ws)) - (2 * $borderThickness);
-							$hAll = intval(max($this->h, $this->hp, $this->hl, $this->hs)) - (2 * $borderThickness);
-							$imAR = $this->source_width / $this->source_height;
-							$zcAR = (($wAll && $hAll) ? $wAll / $hAll : 1);
-							$side  = phpthumb_functions::nonempty_min($this->source_width, $this->source_height, max($wAll, $hAll));
-							$sideX = phpthumb_functions::nonempty_min($this->source_width,                       $wAll, round($hAll * $zcAR));
-							$sideY = phpthumb_functions::nonempty_min(                     $this->source_height, $hAll, round($wAll / $zcAR));
-
-							$thumbnailH = round(max($sideY, ($sideY * $zcAR) / $imAR));
-							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement(($IMuseExplicitImageOutputDimensions ? $thumbnailH : '').'x'.$thumbnailH);
-
-							switch (strtoupper($this->zc)) {
-								case 'T':
-									$commandline .= ' -gravity north';
-									break;
-								case 'B':
-									$commandline .= ' -gravity south';
-									break;
-								case 'L':
-									$commandline .= ' -gravity west';
-									break;
-								case 'R':
-									$commandline .= ' -gravity east';
-									break;
-								case 'TL':
-									$commandline .= ' -gravity northwest';
-									break;
-								case 'TR':
-									$commandline .= ' -gravity northeast';
-									break;
-								case 'BL':
-									$commandline .= ' -gravity southwest';
-									break;
-								case 'BR':
-									$commandline .= ' -gravity southeast';
-									break;
-								case '1':
-								case 'C':
-								default:
-									$commandline .= ' -gravity center';
-									break;
-							}
-
-							if (($wAll > 0) && ($hAll > 0)) {
-								$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($wAll.'x'.$hAll.'+0+0');
-							} else {
-								$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($side.'x'.$side.'+0+0');
-							}
-							if ($this->ImageMagickSwitchAvailable('repage')) {
-								$commandline .= ' +repage';
-							} else {
-								$this->DebugMessage('Skipping "+repage" because ImageMagick (v'.$this->ImageMagickVersion().') does not support it', __FILE__, __LINE__);
-							}
-
-						} elseif ($this->sw || $this->sh || $this->sx || $this->sy) {
-
-							$crop_param   = '';
-							$crop_param  .=     ($this->sw ? (($this->sw < 2) ? round($this->sw * $this->source_width)  : $this->sw) : $this->source_width);
-							$crop_param  .= 'x'.($this->sh ? (($this->sh < 2) ? round($this->sh * $this->source_height) : $this->sh) : $this->source_height);
-							$crop_param  .= '+'.(($this->sx < 2) ? round($this->sx * $this->source_width)  : $this->sx);
-							$crop_param  .= '+'.(($this->sy < 2) ? round($this->sy * $this->source_height) : $this->sy);
-// TO BE FIXED
-// makes 1x1 output
-// http://trainspotted.com/phpThumb/phpThumb.php?src=/content/CNR/47/CNR-4728-LD-L-20110723-898.jpg&w=100&h=100&far=1&f=png&fltr[]=lvl&sx=0.05&sy=0.25&sw=0.92&sh=0.42
-// '/usr/bin/convert' -density 150 -thumbnail 100x100 -contrast-stretch '0.1%' '/var/www/vhosts/trainspotted.com/httpdocs/content/CNR/47/CNR-4728-LD-L-20110723-898.jpg[0]' png:'/var/www/vhosts/trainspotted.com/httpdocs/phpThumb/_cache/pThumbIIUlvj'
-							$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($crop_param);
-
-							// this is broken for aoe=1, but unsure how to fix. Send advice to info@silisoftware.com
-							if ($this->w || $this->h) {
-								//if ($this->ImageMagickSwitchAvailable('repage')) {
-if (false) {
-// TO BE FIXED
-// newer versions of ImageMagick require -repage <geometry>
-									$commandline .= ' -repage';
-								} else {
-									$this->DebugMessage('Skipping "-repage" because ImageMagick (v'.$this->ImageMagickVersion().') does not support it', __FILE__, __LINE__);
-								}
-								if ($IMuseExplicitImageOutputDimensions) {
-									if ($this->w && !$this->h) {
-										$this->h = ceil($this->w / ($this->source_width / $this->source_height));
-									} elseif ($this->h && !$this->w) {
-										$this->w = ceil($this->h * ($this->source_width / $this->source_height));
-									}
-								}
-								$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($this->w.'x'.$this->h);
-							}
-
-						} else {
-
-							if ($this->iar && (intval($this->w) > 0) && (intval($this->h) > 0)) {
-								list($nw, $nh) = phpthumb_functions::TranslateWHbyAngle($this->w, $this->h, $this->ra);
-								$nw = ((round($nw) != 0) ? round($nw) : '');
-								$nh = ((round($nh) != 0) ? round($nh) : '');
-								$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($nw.'x'.$nh.'!');
-							} else {
-								$this->w = ((($this->aoe || $this->far) && $this->w) ? $this->w : ($this->w ? phpthumb_functions::nonempty_min($this->w, $getimagesize[0]) : ''));
-								$this->h = ((($this->aoe || $this->far) && $this->h) ? $this->h : ($this->h ? phpthumb_functions::nonempty_min($this->h, $getimagesize[1]) : ''));
-								if ($this->w || $this->h) {
-									if ($IMuseExplicitImageOutputDimensions) {
-										if ($this->w && !$this->h) {
-											$this->h = ceil($this->w / ($this->source_width / $this->source_height));
-										} elseif ($this->h && !$this->w) {
-											$this->w = ceil($this->h * ($this->source_width / $this->source_height));
-										}
-									}
-									list($nw, $nh) = phpthumb_functions::TranslateWHbyAngle($this->w, $this->h, $this->ra);
-									$nw = ((round($nw) != 0) ? round($nw) : '');
-									$nh = ((round($nh) != 0) ? round($nh) : '');
-									$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($nw.'x'.$nh);
-								}
-							}
-						}
-					}
-
-				} else {
-
-					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') failed', __FILE__, __LINE__);
-					if ($this->w || $this->h) {
-						$exactDimensionsBang = (($this->iar && (intval($this->w) > 0) && (intval($this->h) > 0)) ? '!' : '');
-						if ($IMuseExplicitImageOutputDimensions) {
-							// unknown source aspect ratio, just put large number and hope IM figures it out
-							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement(($this->w ? $this->w : '9999').'x'.($this->h ? $this->h : '9999').$exactDimensionsBang);
-						} else {
-							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($this->w.'x'.$this->h.$exactDimensionsBang);
-						}
-					}
-
-				}
 
 				if ($this->ra) {
 					$this->ra = intval($this->ra);
@@ -2168,6 +2006,170 @@ if (false) {
 					}
 				}
 				$commandline .= ' '.phpthumb_functions::escapeshellarg_replacement(preg_replace('#[/\\\\]#', DIRECTORY_SEPARATOR, $this->sourceFilename).(($outputFormat == 'gif') ? '' : '['.intval($this->sfn).']')); // [0] means first frame of (GIF) animation, can be ignored
+
+				if (is_array($getimagesize)) {
+					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') SUCCEEDED: '.print_r($getimagesize, true), __FILE__, __LINE__);
+				} else {
+					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') FAILED with error "'.$GetImageSizeError.'"', __FILE__, __LINE__);
+				}
+				if (is_array($getimagesize)) {
+					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') returned [w='.$getimagesize[0].';h='.$getimagesize[1].';f='.$getimagesize[2].']', __FILE__, __LINE__);
+					$this->source_width  = $getimagesize[0];
+					$this->source_height = $getimagesize[1];
+					$this->DebugMessage('source dimensions set to '.$this->source_width.'x'.$this->source_height, __FILE__, __LINE__);
+					$this->SetOrientationDependantWidthHeight();
+
+					if (!preg_match('#('.implode('|', $this->AlphaCapableFormats).')#i', $outputFormat)) {
+						// not a transparency-capable format
+						$commandline .= ' -background '.phpthumb_functions::escapeshellarg_replacement('#'.($this->bg ? $this->bg : 'FFFFFF'));
+						if ($getimagesize[2] == IMAGETYPE_GIF) {
+							$commandline .= ' -flatten';
+						}
+					}
+					if ($getimagesize[2] == IMAGETYPE_GIF) {
+						$commandline .= ' -coalesce'; // may be needed for animated GIFs
+					}
+					if ($this->source_width || $this->source_height) {
+						if ($this->zc) {
+
+							$borderThickness = 0;
+							if (!empty($this->fltr)) {
+								foreach ($this->fltr as $key => $value) {
+									if (preg_match('#^bord\|([0-9]+)#', $value, $matches)) {
+										$borderThickness = $matches[1];
+										break;
+									}
+								}
+							}
+							$wAll = intval(max($this->w, $this->wp, $this->wl, $this->ws)) - (2 * $borderThickness);
+							$hAll = intval(max($this->h, $this->hp, $this->hl, $this->hs)) - (2 * $borderThickness);
+							$imAR = $this->source_width / $this->source_height;
+							$zcAR = (($wAll && $hAll) ? $wAll / $hAll : 1);
+							$side  = phpthumb_functions::nonempty_min($this->source_width, $this->source_height, max($wAll, $hAll));
+							$sideX = phpthumb_functions::nonempty_min($this->source_width,                       $wAll, round($hAll * $zcAR));
+							$sideY = phpthumb_functions::nonempty_min(                     $this->source_height, $hAll, round($wAll / $zcAR));
+
+							$thumbnailH = round(max($sideY, ($sideY * $zcAR) / $imAR));
+							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement(($IMuseExplicitImageOutputDimensions ? $thumbnailH : '').'x'.$thumbnailH);
+
+							switch (strtoupper($this->zc)) {
+								case 'T':
+									$commandline .= ' -gravity north';
+									break;
+								case 'B':
+									$commandline .= ' -gravity south';
+									break;
+								case 'L':
+									$commandline .= ' -gravity west';
+									break;
+								case 'R':
+									$commandline .= ' -gravity east';
+									break;
+								case 'TL':
+									$commandline .= ' -gravity northwest';
+									break;
+								case 'TR':
+									$commandline .= ' -gravity northeast';
+									break;
+								case 'BL':
+									$commandline .= ' -gravity southwest';
+									break;
+								case 'BR':
+									$commandline .= ' -gravity southeast';
+									break;
+								case '1':
+								case 'C':
+								default:
+									$commandline .= ' -gravity center';
+									break;
+							}
+
+							if (($wAll > 0) && ($hAll > 0)) {
+								$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($wAll.'x'.$hAll.'+0+0');
+							} else {
+								$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($side.'x'.$side.'+0+0');
+							}
+							if ($this->ImageMagickSwitchAvailable('repage')) {
+								$commandline .= ' +repage';
+							} else {
+								$this->DebugMessage('Skipping "+repage" because ImageMagick (v'.$this->ImageMagickVersion().') does not support it', __FILE__, __LINE__);
+							}
+
+						} elseif ($this->sw || $this->sh || $this->sx || $this->sy) {
+
+							$crop_param   = '';
+							$crop_param  .=     ($this->sw ? (($this->sw < 2) ? round($this->sw * $this->source_width)  : $this->sw) : $this->source_width);
+							$crop_param  .= 'x'.($this->sh ? (($this->sh < 2) ? round($this->sh * $this->source_height) : $this->sh) : $this->source_height);
+							$crop_param  .= '+'.(($this->sx < 2) ? round($this->sx * $this->source_width)  : $this->sx);
+							$crop_param  .= '+'.(($this->sy < 2) ? round($this->sy * $this->source_height) : $this->sy);
+// TO BE FIXED
+// makes 1x1 output
+// http://trainspotted.com/phpThumb/phpThumb.php?src=/content/CNR/47/CNR-4728-LD-L-20110723-898.jpg&w=100&h=100&far=1&f=png&fltr[]=lvl&sx=0.05&sy=0.25&sw=0.92&sh=0.42
+// '/usr/bin/convert' -density 150 -thumbnail 100x100 -contrast-stretch '0.1%' '/var/www/vhosts/trainspotted.com/httpdocs/content/CNR/47/CNR-4728-LD-L-20110723-898.jpg[0]' png:'/var/www/vhosts/trainspotted.com/httpdocs/phpThumb/_cache/pThumbIIUlvj'
+							$commandline .= ' -crop '.phpthumb_functions::escapeshellarg_replacement($crop_param);
+
+							// this is broken for aoe=1, but unsure how to fix. Send advice to info@silisoftware.com
+							if ($this->w || $this->h) {
+								//if ($this->ImageMagickSwitchAvailable('repage')) {
+								if (false) {
+// TO BE FIXED
+// newer versions of ImageMagick require -repage <geometry>
+									$commandline .= ' -repage';
+								} else {
+									$this->DebugMessage('Skipping "-repage" because ImageMagick (v'.$this->ImageMagickVersion().') does not support it', __FILE__, __LINE__);
+								}
+								if ($IMuseExplicitImageOutputDimensions) {
+									if ($this->w && !$this->h) {
+										$this->h = ceil($this->w / ($this->source_width / $this->source_height));
+									} elseif ($this->h && !$this->w) {
+										$this->w = ceil($this->h * ($this->source_width / $this->source_height));
+									}
+								}
+								$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($this->w.'x'.$this->h);
+							}
+
+						} else {
+
+							if ($this->iar && (intval($this->w) > 0) && (intval($this->h) > 0)) {
+								list($nw, $nh) = phpthumb_functions::TranslateWHbyAngle($this->w, $this->h, $this->ra);
+								$nw = ((round($nw) != 0) ? round($nw) : '');
+								$nh = ((round($nh) != 0) ? round($nh) : '');
+								$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($nw.'x'.$nh.'!');
+							} else {
+								$this->w = ((($this->aoe || $this->far) && $this->w) ? $this->w : ($this->w ? phpthumb_functions::nonempty_min($this->w, $getimagesize[0]) : ''));
+								$this->h = ((($this->aoe || $this->far) && $this->h) ? $this->h : ($this->h ? phpthumb_functions::nonempty_min($this->h, $getimagesize[1]) : ''));
+								if ($this->w || $this->h) {
+									if ($IMuseExplicitImageOutputDimensions) {
+										if ($this->w && !$this->h) {
+											$this->h = ceil($this->w / ($this->source_width / $this->source_height));
+										} elseif ($this->h && !$this->w) {
+											$this->w = ceil($this->h * ($this->source_width / $this->source_height));
+										}
+									}
+									list($nw, $nh) = phpthumb_functions::TranslateWHbyAngle($this->w, $this->h, $this->ra);
+									$nw = ((round($nw) != 0) ? round($nw) : '');
+									$nh = ((round($nh) != 0) ? round($nh) : '');
+									$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($nw.'x'.$nh);
+								}
+							}
+						}
+					}
+
+				} else {
+
+					$this->DebugMessage('GetImageSize('.$this->sourceFilename.') failed', __FILE__, __LINE__);
+					if ($this->w || $this->h) {
+						$exactDimensionsBang = (($this->iar && (intval($this->w) > 0) && (intval($this->h) > 0)) ? '!' : '');
+						if ($IMuseExplicitImageOutputDimensions) {
+							// unknown source aspect ratio, just put large number and hope IM figures it out
+							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement(($this->w ? $this->w : '9999').'x'.($this->h ? $this->h : '9999').$exactDimensionsBang);
+						} else {
+							$commandline .= ' -'.$IMresizeParameter.' '.phpthumb_functions::escapeshellarg_replacement($this->w.'x'.$this->h.$exactDimensionsBang);
+						}
+					}
+
+				}
+				
 				$commandline .= ' '.$outputFormat.':'.phpthumb_functions::escapeshellarg_replacement($IMtempfilename);
 				if (!$this->iswindows) {
 					$commandline .= ' 2>&1';
